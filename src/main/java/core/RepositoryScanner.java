@@ -2,6 +2,7 @@ package core;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.util.*;
 
@@ -9,27 +10,34 @@ public class RepositoryScanner {
 
     // Repository path -> Initial commit hash
     private Map<String, String> repos;
-    private static final String REPOS_FILE = "repos.ddgit";
+    public static final String REPOS_FILE = "repos.ddgit";
 
     /**
-     * Scans the filesystem to find Git repositories.
+     * Gets all the repositories from the file.
      *
-     * @param roots paths to directories to start scanning from.
-     * @throws IOException if directories to scan are not specified.
+     * @param file File where repositories stored as "Path Hash", one per line; the last line of the file must be blank.
+     * @return Returns map containing repository paths with their initial commits.
+     * @throws FileNotFoundException if there are some problems with REPOS_FILE.
      */
-    public void scan(String[] roots) throws IOException {
-        if (roots != null && roots.length > 0) {
-            RepositoryFinder rf = new RepositoryFinder();
-
-            for (String root : roots) {
-                Files.walkFileTree(Path.of(root), rf);
+    public static Map<String, String> getFromFile(File file) throws FileNotFoundException {
+        Scanner scanner = new Scanner(file);
+        Map<String, String> repos = new HashMap<>();
+        try (scanner) {
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                String name;
+                String hash;
+                try {
+                    String[] repo = line.split(" +");
+                    name = repo[0];
+                    hash = repo[1];
+                } catch (IndexOutOfBoundsException e) {
+                    throw new IllegalStateException("'" + file.getPath() + "' is not properly formatted.");
+                }
+                repos.put(name, hash);
             }
-
-            this.repos = rf.repos;
-            writeToFile();
-        } else {
-            throw new IllegalArgumentException("No root directory was specified.");
         }
+        return repos;
     }
 
     /**
@@ -105,31 +113,29 @@ public class RepositoryScanner {
     }
 
     /**
-     * Gets all the repositories from the file.
+     * Scans the filesystem to find Git repositories.
      *
-     * @param file File where repositories stored as "Path Hash", one per line; the last line of the file must be blank.
-     * @return Returns map containing repository paths with their initial commits.
-     * @throws FileNotFoundException if there are some problems with REPOS_FILE.
+     * @param roots paths to directories to start scanning from.
+     * @throws IOException if directories to scan are not specified.
      */
-    private Map<String, String> getFromFile(File file) throws FileNotFoundException {
-        Scanner scanner = new Scanner(file);
-        Map<String, String> repos = new HashMap<>();
-        try (scanner) {
-            while (scanner.hasNextLine()) {
-                String line = scanner.nextLine();
-                String name;
-                String hash;
+    public void scan(String[] roots) throws IOException {
+        if (roots != null && roots.length > 0) {
+            RepositoryFinder rf = new RepositoryFinder();
+            for (String root : roots) {
                 try {
-                    String[] repo = line.split(" +");
-                    name = repo[0];
-                    hash = repo[1];
-                } catch (IndexOutOfBoundsException e) {
-                    throw new IllegalStateException("'" + file.getPath() + "' is not properly formatted.");
+
+                    Files.walkFileTree(Path.of(root), rf);
+
+                } catch (InvalidPathException e) {
+                    System.err.println("Invalid path was specified: " + root);
                 }
-                repos.put(name, hash);
             }
+
+            this.repos = rf.repos;
+            writeToFile();
+        } else {
+            throw new IllegalArgumentException("No root directory was specified.");
         }
-        return repos;
     }
 }
 

@@ -32,7 +32,12 @@ public class RepositoryFinder implements FileVisitor<Path> {
                 .build();
         try (RevWalk walk = new RevWalk(repository)) {
             walk.sort(RevSort.REVERSE);
-            walk.markStart(walk.parseCommit(repository.resolve(Constants.HEAD)));
+            try {
+                walk.markStart(walk.parseCommit(repository.resolve(Constants.HEAD)));
+            } catch (NullPointerException e) {
+                System.err.println(path + " found, but there are no commits.");
+                return null;
+            }
             RevCommit initial = walk.next();
             return initial.getName();
         }
@@ -43,7 +48,9 @@ public class RepositoryFinder implements FileVisitor<Path> {
         if (attrs.isDirectory() && dir.endsWith(".git")) {
             String repoDirectory = dir.toAbsolutePath().toString();
             String initialCommitHash = getInitialCommitHash(dir);
-            repos.put(repoDirectory, initialCommitHash);
+            if (initialCommitHash != null) {
+                repos.put(repoDirectory, initialCommitHash);
+            }
             return SKIP_SIBLINGS; // Expecting user not to have a repository inside other repository
         }
         return CONTINUE;
