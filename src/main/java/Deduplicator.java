@@ -8,7 +8,7 @@ public class Deduplicator {
 
     public static void main(String[] args) throws IOException {
         System.out.println("This may take a long time...");
-        scanner.scan(new String[]{"C:\\Users\\maxul"});
+        scanner.update();
     }
 
 }

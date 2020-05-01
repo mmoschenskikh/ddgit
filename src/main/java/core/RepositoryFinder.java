@@ -26,24 +26,24 @@ public class RepositoryFinder implements FileVisitor<Path> {
      */
     public Map<String, String> repos = new HashMap<>();
 
+    public static String getInitialCommitHash(Path path) throws IOException {
+        Repository repository = new FileRepositoryBuilder()
+                .setGitDir(new File(path.toAbsolutePath().toString()))
+                .build();
+        try (RevWalk walk = new RevWalk(repository)) {
+            walk.sort(RevSort.REVERSE);
+            walk.markStart(walk.parseCommit(repository.resolve(Constants.HEAD)));
+            RevCommit initial = walk.next();
+            return initial.getName();
+        }
+    }
+
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
         if (attrs.isDirectory() && dir.endsWith(".git")) {
-            String repoDirectory = dir.getParent().toAbsolutePath().toString();
-            String initialCommitHash;
-
-            // Getting initial commit hash
-            Repository repository = new FileRepositoryBuilder()
-                    .setGitDir(new File(dir.toAbsolutePath().toString()))
-                    .build();
-            try (RevWalk walk = new RevWalk(repository)) {
-                walk.sort(RevSort.REVERSE);
-                walk.markStart(walk.parseCommit(repository.resolve(Constants.HEAD)));
-                RevCommit initial = walk.next();
-                initialCommitHash = initial.getName();
-            }
+            String repoDirectory = dir.toAbsolutePath().toString();
+            String initialCommitHash = getInitialCommitHash(dir);
             repos.put(repoDirectory, initialCommitHash);
-
             return SKIP_SIBLINGS; // Expecting user not to have a repository inside other repository
         }
         return CONTINUE;
