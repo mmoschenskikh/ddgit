@@ -7,7 +7,7 @@ import org.kohsuke.args4j.spi.StringArrayOptionHandler;
 import java.io.IOException;
 import java.util.Scanner;
 
-public class Deduplicator {
+public class Application {
 
     private static final RepositoryScanner scanner = new RepositoryScanner();
 
@@ -21,7 +21,7 @@ public class Deduplicator {
     private boolean reset;
 
     public static void main(String[] args) throws IOException {
-        new Deduplicator().launch(args);
+        new Application().launch(args);
     }
 
     private void launch(String[] args) throws IOException {
