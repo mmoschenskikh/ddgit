@@ -14,8 +14,8 @@ public class RepositoryScanner {
     /**
      * Scans the filesystem to find Git repositories.
      *
-     * @param roots Paths to directories to start scanning from
-     * @throws IOException
+     * @param roots paths to directories to start scanning from.
+     * @throws IOException if directories to scan are not specified.
      */
     public void scan(String[] roots) throws IOException {
         if (roots != null && roots.length > 0) {
@@ -34,6 +34,8 @@ public class RepositoryScanner {
 
     /**
      * Reads REPOS_FILE to find Git repositories which were changed or deleted.
+     *
+     * @throws IOException if program can't access REPOS_FILE.
      */
     public void update() throws IOException {
         File inputFile = new File(REPOS_FILE);
@@ -65,7 +67,7 @@ public class RepositoryScanner {
     /**
      * Deletes all content from REPOS_FILE.
      *
-     * @throws IOException
+     * @throws IOException if there are some problems with REPOS_FILE.
      */
     public void reset() throws IOException {
         new FileWriter(new File(REPOS_FILE)).close();
@@ -74,7 +76,7 @@ public class RepositoryScanner {
     /**
      * Writes all the repositories found with their root commit hashes to REPOS_FILE.
      *
-     * @throws IOException
+     * @throws IOException if there are some problems with REPOS_FILE.
      */
     private void writeToFile() throws IOException {
         File outputFile = new File(REPOS_FILE);
@@ -90,7 +92,7 @@ public class RepositoryScanner {
                             System.err.println("'" + path + "'" + " is already in '" + REPOS_FILE + "', but with other hash:");
                             System.err.println(REPOS_FILE + ": " + hash);
                             System.err.println("Scan result: " + existingRepos.get(path));
-                            System.err.println("Use --update to replace old hash with current one or edit '" + REPOS_FILE + "' manually.");
+                            System.err.println("Use ddgit --update to replace old hash with current one or edit '" + REPOS_FILE + "' manually.");
                         }
                         continue;
                     }
@@ -107,7 +109,7 @@ public class RepositoryScanner {
      *
      * @param file File where repositories stored as "Path Hash", one per line; the last line of the file must be blank.
      * @return Returns map containing repository paths with their initial commits.
-     * @throws FileNotFoundException
+     * @throws FileNotFoundException if there are some problems with REPOS_FILE.
      */
     private Map<String, String> getFromFile(File file) throws FileNotFoundException {
         Scanner scanner = new Scanner(file);
