@@ -1,3 +1,5 @@
+import core.RepositoryScanner;
+
 import java.io.IOException;
 
 public class Deduplicator {
