@@ -1,5 +1,6 @@
 import core.Deduplicator;
 import core.RepositoryScanner;
+import org.eclipse.jgit.api.errors.GitAPIException;
 import picocli.CommandLine;
 
 import java.io.IOException;
@@ -19,7 +20,7 @@ public class Application {
         }
     }
 
-    @CommandLine.Command(name = "ddgit", subcommands = {Clone.class, Scan.class, Update.class, Reset.class})
+    @CommandLine.Command(name = "ddgit", subcommands = {Clone.class, Scan.class, Reset.class})
     static class Deduplicate implements Runnable {
         @Override
         public void run() {
@@ -38,7 +39,7 @@ public class Application {
             } else {
                 try {
                     Deduplicator.cloneRepo(link);
-                } catch (IOException e) {
+                } catch (IOException | GitAPIException | InterruptedException e) {
                     e.printStackTrace();
                 }
             }
@@ -55,19 +56,6 @@ public class Application {
             try {
                 System.out.println("This may take a long time...");
                 scanner.scan(paths);
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    @CommandLine.Command(name = "update", description = "Update the list of repositories found by scan.")
-    static class Update implements Runnable {
-        @Override
-        public void run() {
-            try {
-                scanner.update();
-                System.out.println("Repository list updated.");
             } catch (IOException e) {
                 e.printStackTrace();
             }

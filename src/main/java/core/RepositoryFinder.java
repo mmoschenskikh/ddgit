@@ -46,10 +46,10 @@ public class RepositoryFinder implements FileVisitor<Path> {
     @Override
     public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
         if (attrs.isDirectory() && dir.endsWith(".git")) {
-            String repoDirectory = dir.toAbsolutePath().toString();
             String initialCommitHash = getInitialCommitHash(dir);
+            String repoDirectory = dir.toAbsolutePath().toString();
             if (initialCommitHash != null) {
-                repos.put(repoDirectory, initialCommitHash);
+                repos.put(initialCommitHash, repoDirectory);
             }
             return SKIP_SIBLINGS; // Expecting user not to have a repository inside other repository
         }
