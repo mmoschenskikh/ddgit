@@ -7,7 +7,6 @@ import org.eclipse.jgit.revwalk.RevSort;
 import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -28,7 +27,7 @@ public class RepositoryFinder implements FileVisitor<Path> {
 
     public static String getInitialCommitHash(Path path) throws IOException {
         Repository repository = new FileRepositoryBuilder()
-                .setGitDir(new File(path.toAbsolutePath().toString()))
+                .setGitDir(path.toFile())
                 .build();
         try (RevWalk walk = new RevWalk(repository)) {
             walk.sort(RevSort.REVERSE);
@@ -57,17 +56,17 @@ public class RepositoryFinder implements FileVisitor<Path> {
     }
 
     @Override
-    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) {
         return CONTINUE;
     }
 
     @Override
-    public FileVisitResult visitFileFailed(Path file, IOException exc) throws IOException {
+    public FileVisitResult visitFileFailed(Path file, IOException exc) {
         return CONTINUE;
     }
 
     @Override
-    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) {
         return CONTINUE;
     }
 }

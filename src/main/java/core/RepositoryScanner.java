@@ -10,21 +10,21 @@ import java.util.Scanner;
 
 public class RepositoryScanner {
 
+    public static final String REPOS_FILE = "repos.ddgit";
+
     //Initial commit hash ->  Repository path
     private Map<String, String> repos;
-    public static final String REPOS_FILE = "repos.ddgit";
 
     /**
      * Gets all the repositories from the file.
      *
-     * @param file File where repositories stored as "Path Hash", one per line; the last line of the file must be blank.
-     * @return Returns map containing repository paths with their initial commits.
+     * @param file File where repositories stored as "Hash Path", one per line; the last line of the file must be blank.
+     * @return Returns map containing repository paths with their initial commits hashes.
      * @throws FileNotFoundException if there are some problems with REPOS_FILE.
      */
     public static Map<String, String> getFromFile(File file) throws FileNotFoundException {
-        Scanner scanner = new Scanner(file);
         Map<String, String> repos = new HashMap<>();
-        try (scanner) {
+        try (Scanner scanner = new Scanner(file)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
                 String hash;
@@ -60,8 +60,8 @@ public class RepositoryScanner {
         File outputFile = new File(REPOS_FILE);
         if (outputFile.exists() && outputFile.canWrite() || outputFile.createNewFile()) {
             Map<String, String> existingRepos = getFromFile(outputFile);
-            BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true));
-            try (out) {
+
+            try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true))) {
                 for (Map.Entry<String, String> repo : repos.entrySet()) {
                     String hash = repo.getKey();
                     String path = repo.getValue();
@@ -88,21 +88,18 @@ public class RepositoryScanner {
      * @param roots paths to directories to start scanning from.
      * @throws IOException if directories to scan are not specified.
      */
-    public void scan(String[] roots) throws IOException {
-        if (roots != null && roots.length > 0) {
-            RepositoryFinder rf = new RepositoryFinder();
-            for (String root : roots) {
-                try {
-                    Files.walkFileTree(Path.of(root), rf);
-                } catch (InvalidPathException e) {
-                    System.err.println("Invalid path was specified: " + root);
-                }
+    public int scan(String[] roots) throws IOException {
+        RepositoryFinder rf = new RepositoryFinder();
+        for (String root : roots) {
+            try {
+                Files.walkFileTree(Path.of(root), rf);
+            } catch (InvalidPathException e) {
+                System.err.println("Invalid path was specified: " + root);
             }
-            this.repos = rf.repos;
-            writeToFile();
-        } else {
-            throw new IllegalArgumentException("No root directory was specified.");
         }
+        this.repos = rf.repos;
+        writeToFile();
+        return repos.size();
     }
 }
 
