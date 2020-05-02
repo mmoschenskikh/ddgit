@@ -58,6 +58,12 @@ public class Deduplicator {
                 } catch (RequestException e) {
                     if (!e.getMessage().startsWith("No commit")) {
                         if (authorized) {
+                            if (e.getMessage().startsWith("Bad")) {
+                                System.err.println(token + " is wrong token.");
+                            }
+                            if (e.getMessage().startsWith("API")) {
+                                System.err.println(token + " API rate limit exceeded. Trying another one...");
+                            }
                             String currentToken = token;
                             while (true) {
                                 token = TokenHolder.getToken();
@@ -70,6 +76,12 @@ public class Deduplicator {
                                     if (exception.getMessage().startsWith("No commit")) {
                                         break;
                                     } else {
+                                        if (exception.getMessage().startsWith("Bad")) {
+                                            System.err.println(token + " is wrong token.");
+                                        }
+                                        if (exception.getMessage().startsWith("API")) {
+                                            System.err.println(token + " API rate limit exceeded. Trying another one...");
+                                        }
                                         if (currentToken.equals(token)) {
                                             throw new IllegalStateException("API rate limit exceed for all tokens. Try later.");
                                         }

@@ -24,6 +24,9 @@ public class RepositoryScanner {
      */
     public static Map<String, String> getFromFile(File file) throws FileNotFoundException {
         Map<String, String> repos = new HashMap<>();
+        if (!file.exists()) {
+            return new HashMap<>();
+        }
         try (Scanner scanner = new Scanner(file)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
