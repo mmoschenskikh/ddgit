@@ -12,7 +12,7 @@ public class TokenHolder {
 
     /**
      * Returns the next token from the file.
-     * Store your tokens is 'tokens' file in the program directory.
+     * Store your tokens is 'tokens' file in the program directory, one per line.
      * Current token is marked by '*' sign.
      * Don't use your real account's token there. It's totally unsafe.
      *
@@ -22,6 +22,9 @@ public class TokenHolder {
     public static String getToken() throws IOException {
         List<String> tokens = new ArrayList<>();
         File store = new File(tokenFile);
+        if (!store.exists()) {
+            throw new FileNotFoundException("Can't find tokens file.");
+        }
         BufferedReader br = new BufferedReader(new FileReader(store));
         String line = br.readLine();
         int i = 1;
@@ -29,6 +32,7 @@ public class TokenHolder {
         while (line != null) {
             if (line.endsWith("*")) {
                 starred = i;
+                line = line.substring(0, line.length() - 1);
             }
             tokens.add(line);
             line = br.readLine();
@@ -36,7 +40,9 @@ public class TokenHolder {
         }
 
         StringBuilder sb = new StringBuilder(String.join("\n", tokens));
-        sb.deleteCharAt(TOKEN_LENGTH * starred + starred - 1);
+        if (sb.length() < TOKEN_LENGTH) {
+            throw new IllegalStateException("tokens file is not properly formatted.");
+        }
         int offset = (starred == tokens.size()) ? TOKEN_LENGTH : TOKEN_LENGTH * (starred + 1) + starred;
         sb.insert(offset, '*');
 

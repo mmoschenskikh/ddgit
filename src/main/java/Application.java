@@ -30,8 +30,11 @@ public class Application {
         @CommandLine.Parameters(index = "0", description = "A link to repository to clone")
         String link;
 
-        @CommandLine.Option(names = "-d", description = "A directory to clone in")
-        String directory;
+        @CommandLine.Option(names = "-p", description = "A path to clone in")
+        String path;
+
+        @CommandLine.Option(names = "-a", description = "Authorized access to increase API rate limit")
+        boolean authorized;
 
         @Override
         public void run() {
@@ -39,7 +42,7 @@ public class Application {
                 System.err.println("No link specified.");
             } else {
                 try {
-                    Deduplicator.cloneRepo(link, directory);
+                    Deduplicator.cloneRepo(link, path, authorized);
                     System.out.println("Repository cloned.");
                 } catch (IOException e) {
                     e.printStackTrace();

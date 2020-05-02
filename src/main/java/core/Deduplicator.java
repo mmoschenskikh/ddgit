@@ -25,7 +25,7 @@ public class Deduplicator {
      * @param directory  directory name where cloned repository will be stored.
      * @throws IOException if there are some problems with 'tokens' or 'repos' files.
      */
-    public static void cloneRepo(String repository, String directory) throws IOException {
+    public static void cloneRepo(String repository, String directory, boolean authorized) throws IOException {
         Pattern github = Pattern.compile("https://github\\.com/(.+)/(.+)\\.git");
         Matcher matcher = github.matcher(repository);
 
@@ -40,27 +40,51 @@ public class Deduplicator {
         }
 
         CommitService commitService = new CommitService();
-        String token = TokenHolder.getToken();
-        commitService.getClient().setOAuth2Token(token);
+
+        String token = "";
+        if (authorized) {
+            token = TokenHolder.getToken();
+            commitService.getClient().setOAuth2Token(token);
+        }
 
         Map<String, String> existingRepos = RepositoryScanner.getFromFile(new File(REPOS_FILE));
 
         String remoteHash = "";
 
-        for (String hash : existingRepos.keySet()) {
-            try {
-                commitService.getCommit(repositoryId, hash);
-            } catch (RequestException e) {
-                if (!e.getMessage().startsWith("No commit")) {
-                    token = TokenHolder.getToken();
-                    commitService.getClient().setOAuth2Token(token);
-                    //TODO: The limit may exceed when it tried the right hash.
+        for (String hash : existingRepos.keySet())
+            outerloop:{
+                try {
+                    commitService.getCommit(repositoryId, hash);
+                } catch (RequestException e) {
+                    if (!e.getMessage().startsWith("No commit")) {
+                        if (authorized) {
+                            String currentToken = token;
+                            while (true) {
+                                token = TokenHolder.getToken();
+                                commitService.getClient().setOAuth2Token(token);
+                                try {
+                                    commitService.getCommit(repositoryId, hash);
+                                    remoteHash = hash;
+                                    break outerloop;
+                                } catch (RequestException exception) {
+                                    if (exception.getMessage().startsWith("No commit")) {
+                                        break;
+                                    } else {
+                                        if (currentToken.equals(token)) {
+                                            throw new IllegalStateException("API rate limit exceed for all tokens. Try later.");
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            throw new IllegalStateException("API rate limit exceeded. Try later or use authorized access.");
+                        }
+                    }
+                    continue;
                 }
-                continue;
+                remoteHash = hash;
+                break;
             }
-            remoteHash = hash;
-            break;
-        }
 
         String command = "git clone " + repository;
 
