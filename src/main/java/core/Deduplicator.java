@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -48,55 +49,48 @@ public class Deduplicator {
         }
 
         Map<String, String> existingRepos = RepositoryScanner.getFromFile(new File(REPOS_FILE));
+        Iterator<String> iterator = existingRepos.keySet().iterator();
 
         String remoteHash = "";
+        String hash;
 
-        for (String hash : existingRepos.keySet())
-            outerloop:{
+        outerLoop:
+        while (iterator.hasNext()) {
+            hash = iterator.next();
+            String currentToken = token;
+
+            while (true) {
                 try {
                     commitService.getCommit(repositoryId, hash);
+                    break;
                 } catch (RequestException e) {
-                    if (!e.getMessage().startsWith("No commit")) {
-                        if (authorized) {
-                            if (e.getMessage().startsWith("Bad")) {
-                                System.err.println(token + " is wrong token.");
+                    String errorMessage = e.getMessage().substring(0, 3);
+                    switch (errorMessage) {
+                        case "No ":
+                            System.out.println(hash);
+                            continue outerLoop;
+                        case "API":
+                            if (!authorized) {
+                                throw new IllegalStateException("API rate limit exceed. Try later or use authorized access.");
                             }
-                            if (e.getMessage().startsWith("API")) {
-                                System.err.println(token + " API rate limit exceeded. Trying another one...");
-                            }
-                            String currentToken = token;
-                            while (true) {
-                                token = TokenHolder.getToken();
-                                commitService.getClient().setOAuth2Token(token);
-                                try {
-                                    commitService.getCommit(repositoryId, hash);
-                                    remoteHash = hash;
-                                    break outerloop;
-                                } catch (RequestException exception) {
-                                    if (exception.getMessage().startsWith("No commit")) {
-                                        break;
-                                    } else {
-                                        if (exception.getMessage().startsWith("Bad")) {
-                                            System.err.println(token + " is wrong token.");
-                                        }
-                                        if (exception.getMessage().startsWith("API")) {
-                                            System.err.println(token + " API rate limit exceeded. Trying another one...");
-                                        }
-                                        if (currentToken.equals(token)) {
-                                            throw new IllegalStateException("API rate limit exceed for all tokens. Try later.");
-                                        }
-                                    }
-                                }
-                            }
-                        } else {
-                            throw new IllegalStateException("API rate limit exceeded. Try later or use authorized access.");
-                        }
+                            System.err.println(token + " API rate limit exceeded. Trying another one...");
+                            break;
+                        case "Bad":
+                            System.err.println(token + " is wrong token.");
+                            break;
+                        default:
+                            break;
                     }
-                    continue;
+                    token = TokenHolder.getToken();
+                    commitService.getClient().setOAuth2Token(token);
+                    if (token.equals(currentToken)) {
+                        throw new IllegalStateException("API rate limit exceed for all tokens. Try later.");
+                    }
                 }
-                remoteHash = hash;
-                break;
             }
+            remoteHash = hash;
+            break;
+        }
 
         String command = "git clone " + repository;
 
