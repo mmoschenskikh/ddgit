@@ -89,6 +89,7 @@ public class RepositoryScanner {
      * Scans the filesystem to find Git repositories.
      *
      * @param roots paths to directories to start scanning from.
+     * @return number of repositories found.
      * @throws IOException if directories to scan are not specified.
      */
     public int scan(String[] roots) throws IOException {

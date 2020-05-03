@@ -67,7 +67,6 @@ public class Deduplicator {
                     String errorMessage = e.getMessage().substring(0, 3);
                     switch (errorMessage) {
                         case "No ":
-                            System.out.println(hash);
                             continue outerLoop;
                         case "API":
                             if (!authorized) {
@@ -84,7 +83,7 @@ public class Deduplicator {
                     token = TokenHolder.getToken();
                     commitService.getClient().setOAuth2Token(token);
                     if (token.equals(currentToken)) {
-                        throw new IllegalStateException("API rate limit exceed for all tokens. Try later.");
+                        throw new IllegalStateException("No token can be used. Check if they are valid or try later if their API rate limit exceeded.");
                     }
                 }
             }
@@ -111,7 +110,7 @@ public class Deduplicator {
             command += " " + directory;
         }
 
-        Process p = Runtime.getRuntime().exec(command);
+        Runtime.getRuntime().exec(command);
     }
 
     /**
