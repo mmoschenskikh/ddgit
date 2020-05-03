@@ -2,6 +2,7 @@ import core.Deduplicator;
 import core.RepositoryScanner;
 import picocli.CommandLine;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Scanner;
 
@@ -18,7 +19,7 @@ public class Application {
         }
     }
 
-    @CommandLine.Command(name = "ddgit", subcommands = {Clone.class, Delete.class, Scan.class, Reset.class})
+    @CommandLine.Command(name = "java -jar ddgit.jar", subcommands = {Clone.class, Delete.class, Scan.class, Reset.class})
     static class Deduplicate implements Runnable {
         @Override
         public void run() {
@@ -56,12 +57,32 @@ public class Application {
         @CommandLine.Parameters(index = "0", description = "A directory to delete")
         String directory;
 
+        @CommandLine.Option(names = "-f", description = "Force delete repository (without confirmation)")
+        boolean force = false;
+
         @Override
         public void run() {
-            try {
-                Deduplicator.deleteRepo(directory);
-            } catch (IOException e) {
-                e.printStackTrace();
+            if (force) {
+                try {
+                    Deduplicator.deleteRepo(directory);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            } else {
+                System.out.println("Are you sure you want to delete the repository at "
+                        + new File(directory).toPath().toAbsolutePath() + "? (y/n)");
+                try (Scanner input = new Scanner(System.in)) {
+                    String line = input.nextLine().toLowerCase();
+                    if (line.equals("y") || line.equals("yes")) {
+                        try {
+                            Deduplicator.deleteRepo(directory);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        System.out.println("Deletion canceled.");
+                    }
+                }
             }
         }
     }
@@ -91,7 +112,7 @@ public class Application {
     static class Reset implements Runnable {
         @Override
         public void run() {
-            System.err.println("Are you sure you want to delete the list of repositories? (y/n)");
+            System.out.println("Are you sure you want to delete the list of repositories? (y/n)");
             try (Scanner input = new Scanner(System.in)) {
                 String line = input.nextLine().toLowerCase();
                 if (line.equals("y") || line.equals("yes")) {
