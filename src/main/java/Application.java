@@ -1,6 +1,6 @@
 import core.Deduplicator;
 import core.RepositoryScanner;
-import picocli.CommandLine;
+import remkop.picocli.CommandLine;
 
 import java.io.File;
 import java.io.IOException;
@@ -34,16 +34,13 @@ public class Application {
         @CommandLine.Option(names = "-p", description = "A path to clone in")
         String path;
 
-        @CommandLine.Option(names = "-a", description = "Authorized access to increase API rate limit")
-        boolean authorized;
-
         @Override
         public void run() {
             if (link == null) {
                 System.err.println("No link specified.");
             } else {
                 try {
-                    Deduplicator.cloneRepo(link, path, authorized);
+                    Deduplicator.cloneRepo(link, path);
                     System.out.println("Repository cloned.");
                 } catch (IOException e) {
                     e.printStackTrace();

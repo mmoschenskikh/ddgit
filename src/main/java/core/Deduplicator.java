@@ -1,20 +1,14 @@
 package core;
 
-import org.eclipse.egit.github.core.RepositoryId;
-import org.eclipse.egit.github.core.client.RequestException;
-import org.eclipse.egit.github.core.service.CommitService;
-
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 import static core.RepositoryScanner.REPOS_FILE;
+import static core.RepositoryScanner.getFromFile;
 
 public class Deduplicator {
 
@@ -26,91 +20,22 @@ public class Deduplicator {
      * @param directory  directory name where cloned repository will be stored.
      * @throws IOException if there are some problems with 'tokens' or 'repos' files.
      */
-    public static void cloneRepo(String repository, String directory, boolean authorized) throws IOException {
-        Pattern github = Pattern.compile("https://github\\.com/(.+)/(.+)\\.git");
-        Matcher matcher = github.matcher(repository);
+    public static void cloneRepo(String repository, String directory) throws IOException {
 
-        RepositoryId repositoryId;
+        StringBuilder command = new StringBuilder("git clone " + repository);
 
-        if (matcher.find()) {
-            String owner = matcher.group(1);
-            String name = matcher.group(2);
-            repositoryId = new RepositoryId(owner, name);
-        } else {
-            throw new IllegalArgumentException("Wrong GitHub link");
-        }
+        Set<Path> repos = getFromFile(new File(REPOS_FILE));
 
-        CommitService commitService = new CommitService();
-
-        String token = "";
-        if (authorized) {
-            token = TokenHolder.getToken();
-            commitService.getClient().setOAuth2Token(token);
-        }
-
-        Map<String, String> existingRepos = RepositoryScanner.getFromFile(new File(REPOS_FILE));
-        Iterator<String> iterator = existingRepos.keySet().iterator();
-
-        String remoteHash = "";
-        String hash;
-
-        outerLoop:
-        while (iterator.hasNext()) {
-            hash = iterator.next();
-            String currentToken = token;
-
-            while (true) {
-                try {
-                    commitService.getCommit(repositoryId, hash);
-                    break;
-                } catch (RequestException e) {
-                    String errorMessage = e.getMessage().substring(0, 3);
-                    switch (errorMessage) {
-                        case "No ":
-                            continue outerLoop;
-                        case "API":
-                            if (!authorized) {
-                                throw new IllegalStateException("API rate limit exceed. Try later or use authorized access.");
-                            }
-                            System.err.println(token + " API rate limit exceeded. Trying another one...");
-                            break;
-                        case "Bad":
-                            System.err.println(token + " is wrong token.");
-                            break;
-                        default:
-                            break;
-                    }
-                    token = TokenHolder.getToken();
-                    commitService.getClient().setOAuth2Token(token);
-                    if (token.equals(currentToken)) {
-                        throw new IllegalStateException("No token can be used. Check if they are valid or try later if their API rate limit exceeded.");
-                    }
-                }
-            }
-            remoteHash = hash;
-            break;
-        }
-
-        String command = "git clone " + repository;
-
-        if (existingRepos.containsKey(remoteHash)) {
-            String parentRepo = existingRepos.get(remoteHash);
-            File repoDir = new File(parentRepo);
-            if (repoDir.exists() && repoDir.isDirectory() && repoDir.canRead()) {
-                System.out.println("Parent repository " + parentRepo + " found for " + repository);
-                command += " --reference " + parentRepo.substring(0, parentRepo.length() - 5);
-            } else {
-                System.err.println(parentRepo + " found but doesn't exist. Remove it from " + REPOS_FILE + ".");
-            }
-        } else {
-            System.err.println("No parent repository found for " + repository);
+        for (Path repo : repos) {
+            String repoPath = repo.toAbsolutePath().toString();
+            command.append(" --reference ").append(repoPath, 0, repoPath.length() - 5);
         }
 
         if (directory != null && directory.length() > 0) {
-            command += " " + directory;
+            command.append(" ").append(directory);
         }
 
-        Runtime.getRuntime().exec(command);
+        Runtime.getRuntime().exec(command.toString());
     }
 
     /**

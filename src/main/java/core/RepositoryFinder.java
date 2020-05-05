@@ -1,19 +1,12 @@
 package core;
 
-import org.eclipse.jgit.lib.Constants;
-import org.eclipse.jgit.lib.Repository;
-import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.revwalk.RevSort;
-import org.eclipse.jgit.revwalk.RevWalk;
-import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
-
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashSet;
+import java.util.Set;
 
 import static java.nio.file.FileVisitResult.CONTINUE;
 import static java.nio.file.FileVisitResult.SKIP_SIBLINGS;
@@ -23,33 +16,12 @@ public class RepositoryFinder implements FileVisitor<Path> {
     /**
      * Stores all the repositories found with their root commit hashes.
      */
-    public Map<String, String> repos = new HashMap<>();
-
-    public static String getInitialCommitHash(Path path) throws IOException {
-        Repository repository = new FileRepositoryBuilder()
-                .setGitDir(path.toFile())
-                .build();
-        try (RevWalk walk = new RevWalk(repository)) {
-            walk.sort(RevSort.REVERSE);
-            try {
-                walk.markStart(walk.parseCommit(repository.resolve(Constants.HEAD)));
-            } catch (NullPointerException e) {
-                System.err.println(path + " found, but there are no commits.");
-                return null;
-            }
-            RevCommit initial = walk.next();
-            return initial.getName();
-        }
-    }
+    public Set<Path> repos = new HashSet<>();
 
     @Override
-    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) throws IOException {
+    public FileVisitResult preVisitDirectory(Path dir, BasicFileAttributes attrs) {
         if (attrs.isDirectory() && dir.endsWith(".git")) {
-            String initialCommitHash = getInitialCommitHash(dir);
-            String repoDirectory = dir.toAbsolutePath().toString();
-            if (initialCommitHash != null) {
-                repos.put(initialCommitHash, repoDirectory);
-            }
+            repos.add(dir);
             return SKIP_SIBLINGS; // Expecting user not to have a repository inside other repository
         }
         return CONTINUE;

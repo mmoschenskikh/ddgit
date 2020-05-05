@@ -4,16 +4,16 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.util.HashMap;
-import java.util.Map;
+import java.nio.file.Paths;
+import java.util.HashSet;
 import java.util.Scanner;
+import java.util.Set;
 
 public class RepositoryScanner {
 
-    public static final String REPOS_FILE = "repos.ddgit";
+    public static final String REPOS_FILE = "repos_list";
 
-    //Initial commit hash ->  Repository path
-    private Map<String, String> repos;
+    private Set<Path> repos;
 
     /**
      * Gets all the repositories from the file.
@@ -22,24 +22,19 @@ public class RepositoryScanner {
      * @return Returns map containing repository paths with their initial commits hashes.
      * @throws FileNotFoundException if there are some problems with REPOS_FILE.
      */
-    public static Map<String, String> getFromFile(File file) throws FileNotFoundException {
-        Map<String, String> repos = new HashMap<>();
+    public static Set<Path> getFromFile(File file) throws FileNotFoundException {
+        Set<Path> repos = new HashSet<>();
         if (!file.exists()) {
-            return new HashMap<>();
+            return repos;
         }
         try (Scanner scanner = new Scanner(file)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
-                String hash;
-                String name;
                 try {
-                    String[] repo = line.split(" +");
-                    hash = repo[0];
-                    name = repo[1];
-                } catch (IndexOutOfBoundsException e) {
-                    throw new IllegalStateException("'" + file.getPath() + "' is not properly formatted.");
+                    repos.add(Paths.get(line));
+                } catch (InvalidPathException e) {
+                    System.err.println(line + " is wrong path.");
                 }
-                repos.put(hash, name);
             }
         }
         return repos;
@@ -62,22 +57,10 @@ public class RepositoryScanner {
     private void writeToFile() throws IOException {
         File outputFile = new File(REPOS_FILE);
         if (outputFile.exists() && outputFile.canWrite() || outputFile.createNewFile()) {
-            Map<String, String> existingRepos = getFromFile(outputFile);
-
+            Set<Path> existingRepos = getFromFile(outputFile);
             try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true))) {
-                for (Map.Entry<String, String> repo : repos.entrySet()) {
-                    String hash = repo.getKey();
-                    String path = repo.getValue();
-                    if (existingRepos.containsKey(hash)) {
-                        if (!existingRepos.get(hash).equals(path)) {
-                            System.err.println("'" + hash + "'" + " is already in '" + REPOS_FILE + "', but with other path:");
-                            System.err.println(REPOS_FILE + ": " + path);
-                            System.err.println("Scan result: " + existingRepos.get(hash));
-                            System.err.println("Use ddgit reset then ddgit scan to replace old path with current one or edit '" + REPOS_FILE + "' manually.");
-                        }
-                        continue;
-                    }
-                    out.write(hash + " " + path + " \n");
+                for (Path repo : existingRepos) {
+                    out.write(repo.toAbsolutePath().toString() + "\n");
                 }
             }
         } else {
