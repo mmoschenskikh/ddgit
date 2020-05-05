@@ -59,8 +59,10 @@ public class RepositoryScanner {
         if (outputFile.exists() && outputFile.canWrite() || outputFile.createNewFile()) {
             Set<Path> existingRepos = getFromFile(outputFile);
             try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true))) {
-                for (Path repo : existingRepos) {
-                    out.write(repo.toAbsolutePath().toString() + "\n");
+                for (Path repo : repos) {
+                    if (!existingRepos.contains(repo)) {
+                        out.write(repo.toAbsolutePath().toString() + "\n");
+                    }
                 }
             }
         } else {
