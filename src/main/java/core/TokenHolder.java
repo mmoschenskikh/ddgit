@@ -4,52 +4,51 @@ import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 
-// unsafe
 public class TokenHolder {
 
-    private final static String tokenFile = "tokens";
+    /**
+     * A file to store GitHub OAuthTokens. It is not safe to save your real tokens here.
+     * Store your tokens in this file in the program directory, one per line.
+     * Current token is marked by '*' sign.
+     */
+    public final static File TOKEN_FILE = new File("tokens");
     private final static int TOKEN_LENGTH = 40;
 
     /**
      * Returns the next token from the file.
-     * Store your tokens is 'tokens' file in the program directory, one per line.
-     * Current token is marked by '*' sign.
-     * Don't use your real account's token there. It's totally unsafe.
      *
      * @return GitHub OAuth token.
-     * @throws IOException if there are some problems with 'tokens' file.
+     * @throws IOException if there are some problems with {@link #TOKEN_FILE} file.
      */
-    public static String getToken() throws IOException {
+    public static String getToken() throws IOException, IllegalStateException {
+        if (!TOKEN_FILE.exists())
+            throw new FileNotFoundException("Cannot find \"tokens\" file.");
+
         List<String> tokens = new ArrayList<>();
-        File store = new File(tokenFile);
-        if (!store.exists()) {
-            throw new FileNotFoundException("Can't find tokens file.");
-        }
-        BufferedReader br = new BufferedReader(new FileReader(store));
-        String line = br.readLine();
-        int i = 1;
         int starred = 0;
-        while (line != null) {
-            if (line.endsWith("*")) {
-                starred = i;
-                line = line.substring(0, line.length() - 1);
+        try (BufferedReader reader = new BufferedReader(new FileReader(TOKEN_FILE))) {
+            int i = 1;
+            String line = reader.readLine();
+            while (line != null) {
+                if (line.endsWith("*")) {
+                    starred = i;
+                    line = line.substring(0, line.length() - 1);
+                }
+                tokens.add(line);
+                line = reader.readLine();
+                i++;
             }
-            tokens.add(line);
-            line = br.readLine();
-            i++;
         }
 
-        StringBuilder sb = new StringBuilder(String.join("\n", tokens));
-        if (sb.length() < TOKEN_LENGTH) {
-            throw new IllegalStateException("tokens file is not properly formatted.");
-        }
+        StringBuilder builder = new StringBuilder(String.join("\n", tokens));
+        if (builder.length() < TOKEN_LENGTH)
+            throw new IllegalStateException("\"tokens\" file is not properly formatted");
         int offset = (starred == tokens.size()) ? TOKEN_LENGTH : TOKEN_LENGTH * (starred + 1) + starred;
-        sb.insert(offset, '*');
+        builder.insert(offset, '*');
 
-        try (BufferedWriter bw = new BufferedWriter(new FileWriter(store))) {
-            bw.write(sb.toString());
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(TOKEN_FILE))) {
+            writer.write(builder.toString());
         }
-
         return (starred == tokens.size()) ? tokens.get(0) : tokens.get(starred);
     }
 }

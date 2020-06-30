@@ -1,6 +1,6 @@
-import core.Deduplicator;
+import core.Cloner;
 import core.RepositoryScanner;
-import remkop.picocli.CommandLine;
+import picocli.CommandLine;
 
 import java.io.File;
 import java.io.IOException;
@@ -8,18 +8,16 @@ import java.util.Scanner;
 
 public class Application {
 
-    private static final RepositoryScanner scanner = new RepositoryScanner();
+    private static CommandLine cmd;
 
     public static void main(String[] args) {
-        CommandLine cmd = new CommandLine(new Deduplicate());
+        cmd = new CommandLine(new Deduplicate());
         cmd.execute(args);
 
-        if (args.length == 0) {
-            cmd.usage(System.out);
-        }
+        if (args.length == 0) cmd.usage(System.out);
     }
 
-    @CommandLine.Command(name = "java -jar ddgit.jar", subcommands = {Clone.class, Delete.class, Scan.class, Reset.class})
+    @CommandLine.Command(name = "java -jar ddgit.jar", subcommands = {Clone.class, Delete.class, Scan.class})
     static class Deduplicate implements Runnable {
         @Override
         public void run() {
@@ -34,17 +32,35 @@ public class Application {
         @CommandLine.Option(names = "-p", description = "A path to clone in")
         String path;
 
+        @CommandLine.Option(names = "-d", description = "Enable deduplication, way of deduplication is selected automatically")
+        boolean deduplicate;
+
+        @CommandLine.Option(names = "-a", description = "Use authorized access to GitHub to increase API rate limit")
+        boolean authorize;
+
+        @CommandLine.Option(names = "--dumb", description = "Enable forced dumb deduplication, use only with '-d'")
+        boolean dumb;
+
         @Override
         public void run() {
             if (link == null) {
                 System.err.println("No link specified.");
             } else {
+                Cloner.setAuthorized(authorize);
                 try {
-                    Deduplicator.cloneRepo(link, path);
-                    System.out.println("Repository cloned.");
-                } catch (IOException e) {
-                    e.printStackTrace();
+                    if (deduplicate) {
+                        if (!dumb && link.matches("https://github\\.com/(.+)\\.git"))
+                            Cloner.DEDUPLICATE_GITHUB.cloneRepo(link, path);
+                        else
+                            Cloner.DEDUPLICATE_DUMB.cloneRepo(link, path);
+                    } else {
+                        Cloner.GIT_DEFAULT.cloneRepo(link, path);
+                    }
+                } catch (InterruptedException | IOException | IllegalStateException e) {
+                    System.err.println(e.getMessage());
+                    System.exit(-1);
                 }
+                System.out.println("Repository cloned.");
             }
         }
     }
@@ -59,27 +75,23 @@ public class Application {
 
         @Override
         public void run() {
-            if (force) {
-                try {
-                    Deduplicator.deleteRepo(directory);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            } else {
-                System.out.println("Are you sure you want to delete the repository at "
-                        + new File(directory).toPath().toAbsolutePath() + "? (y/n)");
-                try (Scanner input = new Scanner(System.in)) {
-                    String line = input.nextLine().toLowerCase();
-                    if (line.equals("y") || line.equals("yes")) {
-                        try {
-                            Deduplicator.deleteRepo(directory);
-                        } catch (IOException e) {
-                            e.printStackTrace();
+            try {
+                if (force) {
+                    Cloner.deleteRepo(directory);
+                } else {
+                    System.out.println("Are you sure you want to delete the repository at "
+                            + new File(directory).getAbsolutePath() + "? (y/n)");
+                    try (Scanner input = new Scanner(System.in)) {
+                        String line = input.nextLine().toLowerCase();
+                        if (line.equals("y") || line.equals("yes")) {
+                            Cloner.deleteRepo(directory);
+                        } else {
+                            System.out.println("Deletion cancelled.");
                         }
-                    } else {
-                        System.out.println("Deletion canceled.");
                     }
                 }
+            } catch (IOException | IllegalStateException e) {
+                System.err.println(e.getMessage());
             }
         }
     }
@@ -94,33 +106,13 @@ public class Application {
             try {
                 if (paths != null && paths.length != 0) {
                     System.out.println("This may take a long time...");
-                    final int count = scanner.scan(paths);
+                    final int count = RepositoryScanner.scan(paths);
                     System.out.println(count + " new repositories found.");
                 } else {
                     System.err.println("No root directory specified.");
                 }
             } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    @CommandLine.Command(name = "reset", description = "Clear the list of found repositories.")
-    static class Reset implements Runnable {
-        @Override
-        public void run() {
-            System.out.println("Are you sure you want to delete the list of repositories? (y/n)");
-            try (Scanner input = new Scanner(System.in)) {
-                String line = input.nextLine().toLowerCase();
-                if (line.equals("y") || line.equals("yes")) {
-                    try {
-                        scanner.reset();
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                } else {
-                    System.out.println("Reset aborted.");
-                }
+                System.err.println(e.getMessage());
             }
         }
     }

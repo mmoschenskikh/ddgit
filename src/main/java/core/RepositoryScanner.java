@@ -2,71 +2,76 @@ package core;
 
 import java.io.*;
 import java.nio.file.Files;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
-import java.util.Set;
 
 public class RepositoryScanner {
 
-    public static final String REPOS_FILE = "repos_list";
+    /**
+     * The file where all the source repositories are stored with their hashes.
+     * The format is following: "Hash Path", one per line, Hash must be 40 characters long, then space, then absolute path.
+     * The last line of the file must be blank.
+     */
+    public static final File REPOS_FILE = new File("source_repositories_list");
 
-    private Set<Path> repos;
+    private static Map<String, Path> repositories;
 
     /**
      * Gets all the repositories from the file.
      *
-     * @param file File where repositories stored as "Hash Path", one per line; the last line of the file must be blank.
-     * @return Returns map containing repository paths with their initial commits hashes.
-     * @throws FileNotFoundException if there are some problems with REPOS_FILE.
+     * @param file File where repositories stored with their hashes, usually {@link RepositoryScanner#REPOS_FILE}.
+     * @return map containing repositories paths with their initial commits hashes.
+     * @throws FileNotFoundException if there are some problems with {@link RepositoryScanner#REPOS_FILE}.
      */
-    public static Set<Path> getFromFile(File file) throws FileNotFoundException {
-        Set<Path> repos = new HashSet<>();
-        if (!file.exists()) {
-            return repos;
-        }
+    public static Map<String, Path> getFromFile(File file) throws FileNotFoundException {
+        Map<String, Path> repositories = new HashMap<>();
+        if (!file.exists()) return repositories;
         try (Scanner scanner = new Scanner(file)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
+                String hash;
+                Path path;
                 try {
-                    repos.add(Paths.get(line));
-                } catch (InvalidPathException e) {
-                    System.err.println(line + " is wrong path.");
+                    String[] repositoryInfo = line.split(" +");
+                    hash = repositoryInfo[0];
+                    path = Path.of(repositoryInfo[1]);
+                } catch (IndexOutOfBoundsException e) {
+                    throw new IllegalStateException("\"" + file.getAbsolutePath() + "\" is not properly formatted");
                 }
+                repositories.put(hash, path);
             }
         }
-        return repos;
+        return repositories;
     }
 
     /**
-     * Deletes all content from REPOS_FILE.
+     * Writes (appends) all the repositories found with their root commit hashes to the file.
      *
-     * @throws IOException if there are some problems with REPOS_FILE.
+     * @param file File where repositories will be stored with their hashes, usually {@link RepositoryScanner#REPOS_FILE}.
+     * @throws IOException if there are some problems with {@link RepositoryScanner#REPOS_FILE}.
      */
-    public void reset() throws IOException {
-        new FileWriter(new File(REPOS_FILE)).close();
-    }
-
-    /**
-     * Writes all the repositories found with their root commit hashes to REPOS_FILE.
-     *
-     * @throws IOException if there are some problems with REPOS_FILE.
-     */
-    private void writeToFile() throws IOException {
-        File outputFile = new File(REPOS_FILE);
-        if (outputFile.exists() && outputFile.canWrite() || outputFile.createNewFile()) {
-            Set<Path> existingRepos = getFromFile(outputFile);
-            try (BufferedWriter out = new BufferedWriter(new FileWriter(outputFile, true))) {
-                for (Path repo : repos) {
-                    if (!existingRepos.contains(repo)) {
-                        out.write(repo.toAbsolutePath().toString() + "\n");
+    private static void writeToFile(File file) throws IOException {
+        if (file.exists() && file.canWrite() || file.createNewFile()) {
+            Map<String, Path> existingRepositories = getFromFile(file);
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(file, true))) {
+                for (Map.Entry<String, Path> entry : repositories.entrySet()) {
+                    String hash = entry.getKey();
+                    Path path = entry.getValue();
+                    if (existingRepositories.containsKey(hash)) {
+                        if (!existingRepositories.get(hash).equals(path)) {
+                            System.err.println("\"" + hash + "\"" + " is already in \"" + REPOS_FILE + "\", but with other path:");
+                            System.err.println(REPOS_FILE + ": " + existingRepositories.get(hash).toString());
+                            System.err.println("Scan result: " + path.toString());
+                        }
+                    } else {
+                        writer.write(hash + " " + path.toAbsolutePath().toString() + " \n");
                     }
                 }
             }
         } else {
-            throw new IOException("'" + REPOS_FILE + "' is unavailable for some reason.");
+            throw new IOException("\"" + file.getAbsolutePath() + "\" is unavailable for some reason.");
         }
     }
 
@@ -77,18 +82,14 @@ public class RepositoryScanner {
      * @return number of repositories found.
      * @throws IOException if directories to scan are not specified.
      */
-    public int scan(String[] roots) throws IOException {
-        RepositoryFinder rf = new RepositoryFinder();
+    public static int scan(String... roots) throws IOException {
+        RepositoryVisitor visitor = new RepositoryVisitor();
         for (String root : roots) {
-            try {
-                Files.walkFileTree(Path.of(root), rf);
-            } catch (InvalidPathException e) {
-                System.err.println("Invalid path was specified: " + root);
-            }
+            Files.walkFileTree(Path.of(root), visitor);
         }
-        this.repos = rf.repos;
-        writeToFile();
-        return repos.size();
+        repositories = visitor.getRepositories();
+        writeToFile(REPOS_FILE);
+        return repositories.size();
     }
 }
 
