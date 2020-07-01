@@ -8,10 +8,8 @@ import java.util.Scanner;
 
 public class Application {
 
-    private static CommandLine cmd;
-
     public static void main(String[] args) {
-        cmd = new CommandLine(new Deduplicate());
+        CommandLine cmd = new CommandLine(new Deduplicate());
         cmd.execute(args);
 
         if (args.length == 0) cmd.usage(System.out);
@@ -26,19 +24,19 @@ public class Application {
 
     @CommandLine.Command(name = "clone", description = "Clone a repository into a new directory.")
     static class Clone implements Runnable {
-        @CommandLine.Parameters(index = "0", description = "A link to repository to clone")
+        @CommandLine.Parameters(index = "0", description = "A link to repository to clone.")
         String link;
 
-        @CommandLine.Option(names = "-p", description = "A path to clone in")
+        @CommandLine.Option(names = "-p", description = "A path to clone in.")
         String path;
 
-        @CommandLine.Option(names = "-d", description = "Enable deduplication, way of deduplication is selected automatically")
+        @CommandLine.Option(names = "-d", description = "Enable deduplication, way of deduplication is selected automatically.")
         boolean deduplicate;
 
-        @CommandLine.Option(names = "-a", description = "Use authorized access to GitHub to increase API rate limit")
+        @CommandLine.Option(names = "-a", description = "Use authorized access to GitHub to increase API rate limit (if cloning from GitHub with deduplication).")
         boolean authorize;
 
-        @CommandLine.Option(names = "--dumb", description = "Enable forced dumb deduplication, use only with '-d'")
+        @CommandLine.Option(names = "--dumb", description = "Enable forced dumb deduplication, use only with '-d'.")
         boolean dumb;
 
         @Override
@@ -57,7 +55,7 @@ public class Application {
                         Cloner.GIT_DEFAULT.cloneRepo(link, path);
                     }
                 } catch (InterruptedException | IOException | IllegalStateException e) {
-                    System.err.println(e.getMessage());
+                    System.err.println("Error: " + e.getMessage());
                     System.exit(-1);
                 }
                 System.out.println("Repository cloned.");
@@ -65,27 +63,28 @@ public class Application {
         }
     }
 
-    @CommandLine.Command(name = "repack", description = "Make repository independent from its source repository")
+    @CommandLine.Command(name = "repack", description = "Make repository independent from its source repository.")
     static class Repack implements Runnable {
-        @CommandLine.Parameters(index = "0", description = "A repository to repack")
+        @CommandLine.Parameters(index = "0", description = "A repository to repack.")
         String directory;
 
         @Override
         public void run() {
             try {
                 Cloner.repackRepo(directory);
+                System.out.println("Success.");
             } catch (IOException | InterruptedException e) {
-                System.err.println(e.getMessage());
+                System.err.println("Error: " + e.getMessage());
             }
         }
     }
 
-    @CommandLine.Command(name = "delete", description = "Delete a repository")
+    @CommandLine.Command(name = "delete", description = "Delete a repository.")
     static class Delete implements Runnable {
-        @CommandLine.Parameters(index = "0", description = "A directory to delete")
+        @CommandLine.Parameters(index = "0", description = "A directory to delete.")
         String directory;
 
-        @CommandLine.Option(names = "-f", description = "Force delete repository (without confirmation)")
+        @CommandLine.Option(names = "-f", description = "Force delete repository (without confirmation).")
         boolean force = false;
 
         @Override
@@ -100,20 +99,21 @@ public class Application {
                         String line = input.nextLine().toLowerCase();
                         if (line.equals("y") || line.equals("yes")) {
                             Cloner.deleteRepo(directory);
+                            System.out.println("Repository deleted.");
                         } else {
                             System.out.println("Deletion cancelled.");
                         }
                     }
                 }
             } catch (IOException | IllegalStateException e) {
-                System.err.println(e.getMessage());
+                System.err.println("Error: " + e.getMessage());
             }
         }
     }
 
     @CommandLine.Command(name = "scan", description = "Find local repositories to work with.")
     static class Scan implements Runnable {
-        @CommandLine.Parameters(description = "Directories to scan for repositories")
+        @CommandLine.Parameters(description = "Directories to scan for repositories.")
         String[] paths;
 
         @Override
@@ -127,7 +127,7 @@ public class Application {
                     System.err.println("No root directory specified.");
                 }
             } catch (IOException e) {
-                System.err.println(e.getMessage());
+                System.err.println("Error: " + e.getMessage());
             }
         }
     }

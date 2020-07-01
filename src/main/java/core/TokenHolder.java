@@ -22,7 +22,7 @@ public class TokenHolder {
      */
     public static String getToken() throws IOException, IllegalStateException {
         if (!TOKEN_FILE.exists())
-            throw new FileNotFoundException("Cannot find \"tokens\" file.");
+            throw new FileNotFoundException("Cannot find \"" + TOKEN_FILE.getName() + "\" file.");
 
         List<String> tokens = new ArrayList<>();
         int starred = 0;
