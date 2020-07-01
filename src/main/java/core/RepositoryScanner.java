@@ -27,7 +27,7 @@ public class RepositoryScanner {
      */
     public static Map<String, Path> getFromFile(File file) throws FileNotFoundException {
         Map<String, Path> repositories = new HashMap<>();
-        if (!file.exists()) return repositories;
+        if (!file.exists()) throw new FileNotFoundException("\"" + file.getName() + "\" file is not found");
         try (Scanner scanner = new Scanner(file)) {
             while (scanner.hasNextLine()) {
                 String line = scanner.nextLine();
@@ -38,7 +38,7 @@ public class RepositoryScanner {
                     hash = repositoryInfo[0];
                     path = Path.of(repositoryInfo[1]);
                 } catch (IndexOutOfBoundsException e) {
-                    throw new IllegalStateException("\"" + file.getAbsolutePath() + "\" is not properly formatted");
+                    throw new IllegalStateException("\"" + file.getName() + "\" is not properly formatted");
                 }
                 repositories.put(hash, path);
             }
@@ -61,8 +61,8 @@ public class RepositoryScanner {
                     Path path = entry.getValue();
                     if (existingRepositories.containsKey(hash)) {
                         if (!existingRepositories.get(hash).equals(path)) {
-                            System.err.println("\"" + hash + "\"" + " is already in \"" + REPOS_FILE + "\", but with other path:");
-                            System.err.println(REPOS_FILE + ": " + existingRepositories.get(hash).toString());
+                            System.err.println("\"" + hash + "\"" + " is already in \"" + file.getName() + "\", but with other path:");
+                            System.err.println(file.getName() + ": " + existingRepositories.get(hash).toString());
                             System.err.println("Scan result: " + path.toString());
                         }
                     } else {
@@ -71,7 +71,7 @@ public class RepositoryScanner {
                 }
             }
         } else {
-            throw new IOException("\"" + file.getAbsolutePath() + "\" is unavailable for some reason.");
+            throw new IOException("\"" + file.getName() + "\" is unavailable for some reason.");
         }
     }
 

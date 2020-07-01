@@ -31,6 +31,7 @@ public enum Cloner {
             List<String> command = new ArrayList<>(Arrays.asList("git", "clone", link));
             if (directory != null)
                 command.add(directory);
+            currentWorkingDirectory = System.getProperty("user.dir");
             Cloner.runGit(command);
         }
     },
@@ -57,6 +58,7 @@ public enum Cloner {
                 command.add("--reference");
                 command.add(repoPath);
             }
+            currentWorkingDirectory = System.getProperty("user.dir");
             Cloner.runGit(command);
         }
     },
@@ -141,11 +143,13 @@ public enum Cloner {
                 System.err.println("No local source repository found for " + link);
             }
 
+            currentWorkingDirectory = System.getProperty("user.dir");
             Cloner.runGit(command);
         }
     };
 
     private static boolean isAuthorized;
+    private static String currentWorkingDirectory;
 
     /**
      * Set authorized access for DEDUPLICATE_GITHUB.
@@ -167,14 +171,14 @@ public enum Cloner {
     private static void runGit(List<String> command) throws IOException, InterruptedException, IllegalStateException {
         ProcessBuilder builder = new ProcessBuilder()
                 .redirectErrorStream(true)
-                .directory(new File(System.getProperty("user.dir")))
+                .directory(new File(currentWorkingDirectory))
                 .command(command);
         Process process = builder.start();
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
         StringBuilder gitOutput = new StringBuilder();
         String line;
         while ((line = reader.readLine()) != null) {
-            gitOutput.append(line);
+            gitOutput.append(line).append('\n');
         }
         int exitCode = process.waitFor();
         if (exitCode != 0) {
@@ -184,10 +188,36 @@ public enum Cloner {
     }
 
     /**
+     * Makes repository independent from its source repository.
+     *
+     * @param directory directory to repack (must be a Git repository)
+     * @throws IOException           if there are some problems with access to directory, also see {@link #runGit(List)}.
+     * @throws InterruptedException  see {@link #runGit(List)}.
+     * @throws IllegalStateException if directory is not a Git repository, also see {@link #runGit(List)}.
+     */
+    public static void repackRepo(String directory) throws IOException, InterruptedException, IllegalStateException {
+        File dir = new File(directory);
+        File alternatesFile = Path.of(directory, ".git", "objects", "info", "alternates").toFile();
+        String[] list = dir.list((__, name) -> name.equals(".git"));
+        if (dir.isDirectory() && list != null && list.length == 1) {
+            if (!alternatesFile.exists()) {
+                System.err.println("Repository is already independent.");
+                return;
+            }
+            List<String> command = Arrays.asList("git", "repack", "-ad");
+            currentWorkingDirectory = directory;
+            runGit(command);
+            alternatesFile.delete();
+        } else {
+            throw new IllegalStateException("Directory do not exist or exist but not a Git repository.");
+        }
+    }
+
+    /**
      * Deletes a Git repository.
      *
      * @param directory directory to delete (must be a Git repository).
-     * @throws IOException           when there are some problems with access to directory.
+     * @throws IOException           if there are some problems with access to directory.
      * @throws IllegalStateException when directory is not a Git repository.
      */
     public static void deleteRepo(String directory) throws IOException, IllegalStateException {

@@ -17,7 +17,7 @@ public class Application {
         if (args.length == 0) cmd.usage(System.out);
     }
 
-    @CommandLine.Command(name = "java -jar ddgit.jar", subcommands = {Clone.class, Delete.class, Scan.class})
+    @CommandLine.Command(name = "java -jar ddgit.jar", subcommands = {Clone.class, Delete.class, Scan.class, Repack.class})
     static class Deduplicate implements Runnable {
         @Override
         public void run() {
@@ -61,6 +61,21 @@ public class Application {
                     System.exit(-1);
                 }
                 System.out.println("Repository cloned.");
+            }
+        }
+    }
+
+    @CommandLine.Command(name = "repack", description = "Make repository independent from its source repository")
+    static class Repack implements Runnable {
+        @CommandLine.Parameters(index = "0", description = "A repository to repack")
+        String directory;
+
+        @Override
+        public void run() {
+            try {
+                Cloner.repackRepo(directory);
+            } catch (IOException | InterruptedException e) {
+                System.err.println(e.getMessage());
             }
         }
     }
