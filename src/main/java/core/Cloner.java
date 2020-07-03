@@ -31,6 +31,8 @@ public enum Cloner {
             List<String> command = new ArrayList<>(Arrays.asList("git", "clone", link));
             if (directory != null)
                 command.add(directory);
+            if (isBareClone)
+                command.add("--bare");
             currentWorkingDirectory = System.getProperty("user.dir");
             Cloner.runGit(command);
         }
@@ -52,6 +54,8 @@ public enum Cloner {
             List<String> command = new ArrayList<>(Arrays.asList("git", "clone", link));
             if (directory != null)
                 command.add(directory);
+            if (isBareClone)
+                command.add("--bare");
             Map<String, Path> sourceRepositories = RepositoryScanner.getFromFile(REPOS_FILE);
             for (Path repo : sourceRepositories.values()) {
                 String repoPath = repo.toAbsolutePath().getParent().toString();
@@ -88,6 +92,8 @@ public enum Cloner {
             List<String> command = new ArrayList<>(Arrays.asList("git", "clone", link));
             if (directory != null)
                 command.add(directory);
+            if (isBareClone)
+                command.add("--bare");
 
             Map<String, Path> sourceRepositories = RepositoryScanner.getFromFile(REPOS_FILE);
             Set<String> sourceHashes = sourceRepositories.keySet();
@@ -149,6 +155,7 @@ public enum Cloner {
     };
 
     private static boolean isAuthorized;
+    private static boolean isBareClone;
     private static String currentWorkingDirectory;
 
     /**
@@ -161,6 +168,15 @@ public enum Cloner {
     }
 
     /**
+     * Tell Cloners to make bare clone (only .git directory, without working directory).
+     *
+     * @param bareClone whether to make bare clone.
+     */
+    public static void setBareClone(boolean bareClone) {
+        isBareClone = bareClone;
+    }
+
+    /**
      * Executes Git commands.
      *
      * @param command list of commands to execute.
@@ -168,23 +184,25 @@ public enum Cloner {
      * @throws InterruptedException  if there are some problems during the execution.
      * @throws IllegalStateException if Git finished execution with some error.
      */
-    private static void runGit(List<String> command) throws IOException, InterruptedException, IllegalStateException {
+    private static String runGit(List<String> command) throws IOException, InterruptedException, IllegalStateException {
         ProcessBuilder builder = new ProcessBuilder()
                 .redirectErrorStream(true)
                 .directory(new File(currentWorkingDirectory))
                 .command(command);
         Process process = builder.start();
         BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()));
-        StringBuilder gitOutput = new StringBuilder();
+        StringBuilder gitOutputBuilder = new StringBuilder();
         String line;
         while ((line = reader.readLine()) != null) {
-            gitOutput.append(line).append('\n');
+            gitOutputBuilder.append(line).append('\n');
         }
         int exitCode = process.waitFor();
+        String gitOutput = gitOutputBuilder.toString();
         if (exitCode != 0) {
             System.err.println("Git said:\n" + gitOutput);
             throw new IllegalStateException("Something went wrong when running Git, the exit code is " + exitCode);
         }
+        return gitOutput;
     }
 
     /**
@@ -221,6 +239,7 @@ public enum Cloner {
      * @throws IllegalStateException when directory is not a Git repository.
      */
     public static void deleteRepo(String directory) throws IOException, IllegalStateException {
+        // FIXME: do not work properly with bare repositories
         File dir = new File(directory);
         String[] list = dir.list((__, name) -> name.equals(".git"));
         if (dir.isDirectory() && list != null && list.length == 1) {

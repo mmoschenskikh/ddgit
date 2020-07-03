@@ -27,17 +27,20 @@ public class Application {
         @CommandLine.Parameters(index = "0", description = "A link to repository to clone.")
         String link;
 
-        @CommandLine.Option(names = "-p", description = "A path to clone in.")
+        @CommandLine.Option(names = {"-p", "--path"}, description = "A path to clone in.")
         String path;
 
-        @CommandLine.Option(names = "-d", description = "Enable deduplication, way of deduplication is selected automatically.")
+        @CommandLine.Option(names = {"-d", "--deduplicate"}, description = "Enable deduplication, way of deduplication is selected automatically.")
         boolean deduplicate;
 
-        @CommandLine.Option(names = "-a", description = "Use authorized access to GitHub to increase API rate limit (if cloning from GitHub with deduplication).")
+        @CommandLine.Option(names = {"-a", "--authorize"}, description = "Use authorized access to GitHub to increase API rate limit (if cloning from GitHub with deduplication).")
         boolean authorize;
 
-        @CommandLine.Option(names = "--dumb", description = "Enable forced dumb deduplication, use only with '-d'.")
+        @CommandLine.Option(names = {"--dumb"}, description = "Enable forced dumb deduplication, use only with '-d'.")
         boolean dumb;
+
+        @CommandLine.Option(names = {"-b", "--bare"}, description = "Make bare clone (no checkout, only .git directory is present).")
+        boolean bare;
 
         @Override
         public void run() {
@@ -45,6 +48,7 @@ public class Application {
                 System.err.println("No link specified.");
             } else {
                 Cloner.setAuthorized(authorize);
+                Cloner.setBareClone(bare);
                 try {
                     if (deduplicate) {
                         if (!dumb && link.matches("https://github\\.com/(.+)\\.git"))
@@ -84,7 +88,7 @@ public class Application {
         @CommandLine.Parameters(index = "0", description = "A directory to delete.")
         String directory;
 
-        @CommandLine.Option(names = "-f", description = "Force delete repository (without confirmation).")
+        @CommandLine.Option(names = {"-f", "--force"}, description = "Force delete repository (without confirmation).")
         boolean force = false;
 
         @Override
