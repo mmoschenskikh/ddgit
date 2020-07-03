@@ -109,7 +109,7 @@ public class Application {
                         }
                     }
                 }
-            } catch (IOException | IllegalStateException e) {
+            } catch (IllegalStateException | InterruptedException | IOException e) {
                 System.err.println("Error: " + e.getMessage());
             }
         }

@@ -199,10 +199,45 @@ public enum Cloner {
         int exitCode = process.waitFor();
         String gitOutput = gitOutputBuilder.toString();
         if (exitCode != 0) {
-            System.err.println("Git said:\n" + gitOutput);
-            throw new IllegalStateException("Something went wrong when running Git, the exit code is " + exitCode);
+            throw new IllegalStateException("Something went wrong when running Git, the exit code is " + exitCode
+                    + "\nGit said:\n" + gitOutput);
         }
         return gitOutput;
+    }
+
+    /**
+     * Deletes a Git repository.
+     *
+     * @param directory directory to delete (must be a Git repository).
+     * @throws IllegalStateException when not valid directory specified, also see {@link #runGit(List)}.
+     * @throws IOException           if there are some problems with access to directory, also see {@link #runGit(List)}.
+     * @throws InterruptedException  see {@link #runGit(List)}.
+     */
+    public static void deleteRepo(String directory) throws IllegalStateException, IOException, InterruptedException {
+        currentWorkingDirectory = directory;
+        Path deletingDirectory = Path.of(directory);
+        Path gitRootDirectory;
+        boolean deletingBareRepo;
+        try {
+            deletingBareRepo = Boolean.parseBoolean(runGit(Arrays.asList("git", "rev-parse", "--is-bare-repository")).strip());
+        } catch (IllegalStateException e) {
+            throw new IllegalStateException("Directory is not a Git repository.");
+        } catch (IOException e) {
+            throw new IOException("Directory do not exist.");
+        }
+        try {
+            gitRootDirectory = deletingBareRepo
+                    ? Path.of(runGit(Arrays.asList("git", "rev-parse", "--absolute-git-dir")).strip())
+                    : Path.of(runGit(Arrays.asList("git", "rev-parse", "--show-toplevel")).strip());
+            // second runGit() may throw IllegalStateException here (if running this from .git or its subdirectories)
+
+            if (Files.isSameFile(gitRootDirectory, deletingDirectory)) {
+                delete(deletingDirectory);
+                return;
+            }
+        } catch (IllegalStateException ignored) {
+        }
+        throw new IllegalStateException("Specify root repository directory, not its subdirectory.");
     }
 
     /**
@@ -232,24 +267,16 @@ public enum Cloner {
     }
 
     /**
-     * Deletes a Git repository.
+     * Deletes a directory with all of its subfolders and files.
      *
-     * @param directory directory to delete (must be a Git repository).
-     * @throws IOException           if there are some problems with access to directory.
-     * @throws IllegalStateException when directory is not a Git repository.
+     * @param directory directory to delete.
+     * @throws IOException when an I/O error occurs.
      */
-    public static void deleteRepo(String directory) throws IOException, IllegalStateException {
-        // FIXME: do not work properly with bare repositories
-        File dir = new File(directory);
-        String[] list = dir.list((__, name) -> name.equals(".git"));
-        if (dir.isDirectory() && list != null && list.length == 1) {
-            Files.walk(dir.toPath())
-                    .sorted(Comparator.reverseOrder())
-                    .map(Path::toFile)
-                    .forEach(File::delete);
-        } else {
-            throw new IllegalStateException("Directory do not exist or exist but not a Git repository.");
-        }
+    private static void delete(Path directory) throws IOException {
+        Files.walk(directory)
+                .sorted(Comparator.reverseOrder())
+                .map(Path::toFile)
+                .forEach(File::delete);
     }
 
     public abstract void cloneRepo(String link, String directory) throws IOException, InterruptedException, IllegalStateException;
