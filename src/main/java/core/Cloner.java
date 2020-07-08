@@ -3,10 +3,7 @@ package core;
 import org.eclipse.egit.github.core.RepositoryId;
 import org.eclipse.egit.github.core.service.CommitService;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.*;
@@ -214,25 +211,74 @@ public enum Cloner {
      * @throws InterruptedException  see {@link #runGit(List)}.
      */
     public static void deleteRepo(String directory) throws IllegalStateException, IOException, InterruptedException {
+        RepositoryAction deleteAction = dir -> delete(Path.of(dir));
+        workWithRepo(deleteAction, directory, isBareRepository(directory));
+    }
+
+    /**
+     * Makes repository independent from its source repository.
+     *
+     * @param directory directory to repack (must be a Git repository).
+     * @throws IOException           if there are some problems with access to directory, also see {@link #runGit(List)}.
+     * @throws InterruptedException  see {@link #runGit(List)}.
+     * @throws IllegalStateException if directory is not a Git repository, also see {@link #runGit(List)}.
+     */
+    public static void repackRepo(String directory) throws IOException, InterruptedException, IllegalStateException {
+        final boolean repoIsBare = isBareRepository(directory);
+        RepositoryAction repackAction = dir -> {
+            File alternatesFile = repoIsBare
+                    ? Path.of(directory, "objects", "info", "alternates").toFile()
+                    : Path.of(directory, ".git", "objects", "info", "alternates").toFile();
+            if (!alternatesFile.exists()) {
+                throw new FileNotFoundException("alternates file not found, looks like repository is already independent.");
+            }
+            runGit(Arrays.asList("git", "repack", "-ad"));
+            alternatesFile.delete();
+        };
+        workWithRepo(repackAction, directory, repoIsBare);
+    }
+
+
+    /**
+     * Tells if the repository bare.
+     *
+     * @param directory directory to check (must be a Git repository).
+     * @throws IOException           if there are some problems with access to directory, also see {@link #runGit(List)}.
+     * @throws InterruptedException  see {@link #runGit(List)}.
+     * @throws IllegalStateException if directory is not a Git repository, also see {@link #runGit(List)}.
+     */
+    private static boolean isBareRepository(String directory) throws IOException, InterruptedException, IllegalStateException {
         currentWorkingDirectory = directory;
-        Path deletingDirectory = Path.of(directory);
-        Path gitRootDirectory;
-        boolean deletingBareRepo;
         try {
-            deletingBareRepo = Boolean.parseBoolean(runGit(Arrays.asList("git", "rev-parse", "--is-bare-repository")).strip());
+            return Boolean.parseBoolean(runGit(Arrays.asList("git", "rev-parse", "--is-bare-repository")).strip());
         } catch (IllegalStateException e) {
             throw new IllegalStateException("Directory is not a Git repository.");
         } catch (IOException e) {
             throw new IOException("Directory do not exist.");
         }
+    }
+
+    /**
+     * Performs common actions for deleteRepo and repackRepo.
+     *
+     * @param action    action to perform on repository.
+     * @param directory directory to act (must be a Git repository)
+     * @param isBare    if the repository bare.
+     * @throws IOException           if there are some problems with access to directory, also see {@link #runGit(List)}.
+     * @throws InterruptedException  see {@link #runGit(List)}.
+     * @throws IllegalStateException if directory is not a Git repository, also see {@link #runGit(List)}.
+     */
+    private static void workWithRepo(RepositoryAction action, String directory, boolean isBare) throws IOException, InterruptedException, IllegalStateException {
+        currentWorkingDirectory = directory;
         try {
-            gitRootDirectory = deletingBareRepo
+            Path gitRootDirectory = isBare
                     ? Path.of(runGit(Arrays.asList("git", "rev-parse", "--absolute-git-dir")).strip())
                     : Path.of(runGit(Arrays.asList("git", "rev-parse", "--show-toplevel")).strip());
             // second runGit() may throw IllegalStateException here (if running this from .git or its subdirectories)
 
-            if (Files.isSameFile(gitRootDirectory, deletingDirectory)) {
-                delete(deletingDirectory);
+            Path workingDirectory = Path.of(directory);
+            if (Files.isSameFile(gitRootDirectory, workingDirectory)) {
+                action.act(directory);
                 return;
             }
         } catch (IllegalStateException ignored) {
@@ -241,29 +287,10 @@ public enum Cloner {
     }
 
     /**
-     * Makes repository independent from its source repository.
-     *
-     * @param directory directory to repack (must be a Git repository)
-     * @throws IOException           if there are some problems with access to directory, also see {@link #runGit(List)}.
-     * @throws InterruptedException  see {@link #runGit(List)}.
-     * @throws IllegalStateException if directory is not a Git repository, also see {@link #runGit(List)}.
+     * A single action to perform on repository.
      */
-    public static void repackRepo(String directory) throws IOException, InterruptedException, IllegalStateException {
-        File dir = new File(directory);
-        File alternatesFile = Path.of(directory, ".git", "objects", "info", "alternates").toFile();
-        String[] list = dir.list((__, name) -> name.equals(".git"));
-        if (dir.isDirectory() && list != null && list.length == 1) {
-            if (!alternatesFile.exists()) {
-                System.err.println("Repository is already independent.");
-                return;
-            }
-            List<String> command = Arrays.asList("git", "repack", "-ad");
-            currentWorkingDirectory = directory;
-            runGit(command);
-            alternatesFile.delete();
-        } else {
-            throw new IllegalStateException("Directory do not exist or exist but not a Git repository.");
-        }
+    private interface RepositoryAction {
+        void act(String directory) throws IOException, InterruptedException;
     }
 
     /**

@@ -3,7 +3,6 @@ import core.RepositoryScanner;
 import picocli.CommandLine;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.Scanner;
 
 public class Application {
@@ -58,11 +57,11 @@ public class Application {
                     } else {
                         Cloner.GIT_DEFAULT.cloneRepo(link, path);
                     }
-                } catch (InterruptedException | IOException | IllegalStateException e) {
+                    System.out.println("Repository cloned.");
+                } catch (Exception e) {
                     System.err.println("Error: " + e.getMessage());
                     System.exit(-1);
                 }
-                System.out.println("Repository cloned.");
             }
         }
     }
@@ -77,7 +76,7 @@ public class Application {
             try {
                 Cloner.repackRepo(directory);
                 System.out.println("Success.");
-            } catch (IOException | InterruptedException e) {
+            } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
             }
         }
@@ -109,7 +108,7 @@ public class Application {
                         }
                     }
                 }
-            } catch (IllegalStateException | InterruptedException | IOException e) {
+            } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
             }
         }
@@ -130,7 +129,7 @@ public class Application {
                 } else {
                     System.err.println("No root directory specified.");
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
             }
         }
