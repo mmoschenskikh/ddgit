@@ -3,6 +3,10 @@ import core.RepositoryScanner;
 import picocli.CommandLine;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Scanner;
 
 public class Application {
@@ -38,6 +42,9 @@ public class Application {
         @CommandLine.Option(names = {"--dumb"}, description = "Enable forced dumb deduplication, use only with '-d'.")
         boolean dumb;
 
+        @CommandLine.Option(names = {"-k", "--wk", "--well-known"}, description = "Forcibly look for source repository in well-known repositories list (should be used for frequently cloned repositories), use only with '-d'.")
+        boolean wellKnown;
+
         @CommandLine.Option(names = {"-b", "--bare"}, description = "Make bare clone (no checkout, only .git directory is present).")
         boolean bare;
 
@@ -50,7 +57,22 @@ public class Application {
                 Cloner.setBareClone(bare);
                 try {
                     if (deduplicate) {
-                        if (!dumb && link.matches("https://github\\.com/(.+)\\.git"))
+                        Map<String, Path> wkRepos = new HashMap<>();
+                        // Some magic check
+                        if (Boolean.logicalOr(
+                                Boolean.logicalAnd(authorize, dumb),
+                                Boolean.logicalAnd(wellKnown, Boolean.logicalOr(authorize, dumb))
+                        )) throw new IllegalArgumentException("Wrong options combination.");
+
+                        try {
+                            wkRepos = RepositoryScanner.getFromFile(RepositoryScanner.WK_REPOS_FILE);
+                        } catch (FileNotFoundException e) {
+                            if (wellKnown)
+                                throw new FileNotFoundException(e.getMessage());
+                        }
+                        if (wellKnown || wkRepos.containsKey(link))
+                            Cloner.DEDUPLICATE_WELL_KNOWN.cloneRepo(link, path);
+                        else if (!dumb && link.matches("https://github\\.com/(.+)\\.git"))
                             Cloner.DEDUPLICATE_GITHUB.cloneRepo(link, path);
                         else
                             Cloner.DEDUPLICATE_DUMB.cloneRepo(link, path);

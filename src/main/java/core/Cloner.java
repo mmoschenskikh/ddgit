@@ -11,17 +11,18 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static core.RepositoryScanner.REPOS_FILE;
+import static core.RepositoryScanner.WK_REPOS_FILE;
 
 public enum Cloner {
     GIT_DEFAULT {
         /**
          * Clones repository using "git clone <i>link</i> <i>directory</i>".
          *
-         * @param link a link to repository to clone
-         * @param directory a directory to place cloned repository
-         * @throws IOException see {@link #runGit(List)}
-         * @throws InterruptedException see {@link #runGit(List)}
-         * @throws IllegalStateException see {@link #runGit(List)}
+         * @param link      a link to repository to clone.
+         * @param directory a directory to place cloned repository.
+         * @throws IOException           see {@link #runGit(List)}.
+         * @throws InterruptedException  see {@link #runGit(List)}.
+         * @throws IllegalStateException see {@link #runGit(List)}.
          */
         @Override
         public void cloneRepo(String link, String directory) throws IOException, InterruptedException, IllegalStateException {
@@ -37,14 +38,14 @@ public enum Cloner {
     DEDUPLICATE_DUMB {
         /**
          * Clones repository using "git clone <i>link</i> <i>directory</i> --reference <i>sourceRepository</i>".
-         * Uses dumb deduplication (every source repository is specified in "--reference").
+         * Uses 'dumb' deduplication (every source repository is specified in "--reference").
          * If no source repositories specified, clones repository like {@link Cloner#GIT_DEFAULT}.
          *
-         * @param link a link to repository to clone
-         * @param directory a directory to place cloned repository
-         * @throws IOException if there are some problems with {@link RepositoryScanner#REPOS_FILE} see {@link #runGit(List)}
-         * @throws InterruptedException see {@link #runGit(List)}
-         * @throws IllegalStateException see {@link #runGit(List)}
+         * @param link a link to repository to clone.
+         * @param directory a directory to place cloned repository.
+         * @throws IOException if there are some problems with {@link RepositoryScanner#REPOS_FILE}, also see {@link #runGit(List)}.
+         * @throws InterruptedException see {@link #runGit(List)}.
+         * @throws IllegalStateException see {@link #runGit(List)}.
          */
         @Override
         public void cloneRepo(String link, String directory) throws IOException, InterruptedException, IllegalStateException {
@@ -69,11 +70,11 @@ public enum Cloner {
          * Uses 'smart' deduplication (choosing the right repository to specify in "--reference").
          * If no source repository found, clones repository like {@link Cloner#GIT_DEFAULT}.
          *
-         * @param link a link to repository to clone
-         * @param directory a directory to place cloned repository
-         * @throws IOException if there are some problems with {@link RepositoryScanner#REPOS_FILE} or with {@link TokenHolder#TOKEN_FILE}, also see {@link #runGit(List)}
-         * @throws InterruptedException see {@link #runGit(List)}
-         * @throws IllegalStateException if there are some problems with authorization, also see {@link #runGit(List)}
+         * @param link a link to repository to clone.
+         * @param directory a directory to place cloned repository.
+         * @throws IOException if there are some problems with {@link RepositoryScanner#REPOS_FILE} or with {@link TokenHolder#TOKEN_FILE}, also see {@link #runGit(List)}.
+         * @throws InterruptedException see {@link #runGit(List)}.
+         * @throws IllegalStateException if there are some problems with authorization, also see {@link #runGit(List)}.
          */
         @Override
         public void cloneRepo(String link, String directory) throws IOException, IllegalStateException, InterruptedException {
@@ -146,6 +147,39 @@ public enum Cloner {
                 System.err.println("No local source repository found for " + link);
             }
 
+            currentWorkingDirectory = System.getProperty("user.dir");
+            Cloner.runGit(command);
+        }
+    },
+    DEDUPLICATE_WELL_KNOWN {
+        /**
+         * Clones repository using "git clone <i>link</i> <i>directory</i> --reference <i>sourceRepository</i>".
+         * Uses {@link RepositoryScanner#WK_REPOS_FILE} to specify the right repository in "--reference".
+         * If no source repository found, clones repository like {@link Cloner#GIT_DEFAULT}.
+         * Should be used for frequently cloned repositories.
+         *
+         * @param link a link to repository to clone.
+         * @param directory a directory to place cloned repository.
+         * @throws IOException if there are some problems with {@link RepositoryScanner#WK_REPOS_FILE}, also see {@link #runGit(List)}.
+         * @throws InterruptedException see {@link #runGit(List)}.
+         * @throws IllegalStateException see {@link #runGit(List)}.
+         */
+        @Override
+        public void cloneRepo(String link, String directory) throws IOException, InterruptedException, IllegalStateException {
+            List<String> command = new ArrayList<>(Arrays.asList("git", "clone", link));
+            if (directory != null)
+                command.add(directory);
+            if (isBareClone)
+                command.add("--bare");
+            Map<String, Path> wellKnownRepositories = RepositoryScanner.getFromFile(WK_REPOS_FILE);
+            if (wellKnownRepositories.containsKey(link)) {
+                File sourceRepository = wellKnownRepositories.get(link).toFile();
+                System.out.println("Local source repository for " + link + " found: " + sourceRepository.getAbsolutePath());
+                command.add("--reference");
+                command.add(sourceRepository.getParentFile().getAbsolutePath());
+            } else {
+                System.err.println("No local source repository found for " + link);
+            }
             currentWorkingDirectory = System.getProperty("user.dir");
             Cloner.runGit(command);
         }
