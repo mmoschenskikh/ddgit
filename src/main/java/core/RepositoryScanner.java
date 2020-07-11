@@ -4,8 +4,10 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.stream.Collectors;
 
 public class RepositoryScanner {
 
@@ -82,12 +84,34 @@ public class RepositoryScanner {
      * @return number of repositories found.
      * @throws IOException if directories to scan are not specified.
      */
-    public static int scan(String... roots) throws IOException {
-        RepositoryVisitor visitor = new RepositoryVisitor();
-        for (String root : roots) {
-            Files.walkFileTree(Path.of(root), visitor);
+    public static int scan(String... roots) throws IOException, InterruptedException {
+        repositories = new HashMap<>();
+        Thread[] threads = new Thread[roots.length];
+        for (int i = 0; i < roots.length; i++) {
+            String root = roots[i];
+            threads[i] = new Thread(() -> {
+                RepositoryVisitor visitor = new RepositoryVisitor();
+                visitor.setExcludes(
+                        List.of(roots).stream()
+                                .map(s -> Path.of(s))
+                                .filter(it -> {
+                                    try {
+                                        return !Files.isSameFile(it, Path.of(root)) && it.startsWith(root);
+                                    } catch (IOException ignored) {
+                                    }
+                                    return false;
+                                }).collect(Collectors.toList()));
+                try {
+                    Files.walkFileTree(Path.of(root), visitor);
+                } catch (IOException ignored) {
+                }
+                repositories.putAll(visitor.getRepositories());
+            });
+            threads[i].start();
         }
-        repositories = visitor.getRepositories();
+        for (Thread thread : threads) {
+            thread.join();
+        }
         writeToFile(REPOS_FILE);
         return repositories.size();
     }
